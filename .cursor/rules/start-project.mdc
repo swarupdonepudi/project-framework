@@ -1,0 +1,337 @@
+---
+description: Action rule to bootstrap a new project. Interviews the developer, scaffolds the project folder, generates an initial task plan, and facilitates plan review before execution begins.
+globs:
+alwaysApply: false
+---
+
+# Rule: Start Project (action)
+
+Purpose: When invoked, interview the developer to gather project requirements, bootstrap the project folder structure, generate an initial task plan, and facilitate plan review before any execution begins.
+
+Usage: Invoke as `@start-project` when you identify work that will span multiple sessions.
+
+## Phase 1: Interview
+
+Ask the following questions **one at a time, in order**. Do not batch questions. Wait for each answer before proceeding. Validate required fields before moving on.
+
+### Question 1: Project Name (required)
+"What is the name of your project? Use kebab-case (e.g., `api-migration`, `auth-refactor`, `billing-dashboard`)."
+
+**Validation:** Must be non-empty, lowercase, kebab-case (letters, numbers, hyphens only). Reject names with spaces, underscores, or special characters.
+
+### Question 2: Project Description (required)
+"Describe the project in 1-2 sentences. What is this project about?"
+
+**Validation:** Must be non-empty. Should be concise but informative.
+
+### Question 3: Primary Goal (required)
+"What is the primary goal? What does 'done' look like at the highest level?"
+
+### Question 4: Timeline (required)
+"What is the expected timeline? (e.g., '1 week', '2 sprints', '3 days', 'ongoing')"
+
+### Question 5: Technology Stack (required)
+"What technologies are involved? (e.g., 'Python/FastAPI', 'TypeScript/React/PostgreSQL', 'Go/gRPC')"
+
+### Question 6: Project Type (required)
+"What type of project is this? Choose one:"
+- `feature-development` -- building something new
+- `refactoring` -- restructuring existing code
+- `migration` -- moving between systems/versions
+- `bug-fix` -- fixing defects
+- `optimization` -- improving performance/efficiency
+- `research` -- exploration and prototyping
+- `other` -- describe in next field
+
+### Question 7: Affected Components (required)
+"Which components, services, or areas of the codebase will this project touch? (comma-separated)"
+
+### Question 8: Dependencies (optional)
+"Are there any dependencies or blockers? (other projects, external APIs, team members, etc.) Press Enter to skip."
+
+### Question 9: Success Criteria (required)
+"What are the measurable success criteria? (comma-separated, e.g., 'All endpoints migrated, Tests passing, Docs updated')"
+
+### Question 10: Risks (optional)
+"Any known risks or concerns? Press Enter to skip."
+
+### Question 11: Related Work (optional)
+"Is this related to any existing projects or previous work? Press Enter to skip."
+
+### Question 12: Special Requirements (optional)
+"Any special requirements, constraints, or notes? Press Enter to skip."
+
+## Phase 2: Confirmation
+
+Present a summary of all gathered information in a clean table format:
+
+```
+Project Summary
+===============
+Name:               <project-name>
+Description:        <description>
+Goal:               <goal>
+Timeline:           <timeline>
+Tech Stack:         <tech>
+Type:               <type>
+Components:         <components>
+Dependencies:       <dependencies or "None">
+Success Criteria:   <criteria>
+Risks:              <risks or "None">
+Related Work:       <related or "None">
+Special Reqs:       <special or "None">
+```
+
+Ask: "Does this look correct? (yes/no/edit)"
+
+If "edit", ask which field to change and update it. If "no", restart the interview. If "yes", proceed.
+
+## Phase 3: Bootstrap
+
+Run the bootstrap script to create the project folder structure:
+
+```bash
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+cd "$repo_root"
+python3 _projects/_scripts/bootstrap_project.py \
+  --name "$PROJECT_NAME" \
+  --description "$PROJECT_DESC" \
+  --goal "$PROJECT_GOAL" \
+  --timeline "$PROJECT_TIMELINE" \
+  --tech "$PROJECT_TECH" \
+  --type "$PROJECT_TYPE" \
+  --components "$PROJECT_COMPONENTS" \
+  --dependencies "$PROJECT_DEPENDENCIES" \
+  --success-criteria "$PROJECT_SUCCESS" \
+  --risks "$PROJECT_RISKS"
+```
+
+Replace the `$VARIABLES` with the actual values gathered during the interview. For optional fields that were skipped, pass empty strings.
+
+### Naming Convention
+
+Projects are created at `_projects/YYYYMMDD.NN.project-name/` where:
+- `YYYYMMDD` is today's date
+- `NN` is an auto-incrementing sequence number (01, 02, 03...) for projects created on the same day
+- `project-name` is the kebab-case name from the interview
+
+The bootstrap script handles the sequence number automatically.
+
+### Project Structure Created
+
+```
+_projects/YYYYMMDD.NN.project-name/
+├── README.md                    # Project overview and goals
+├── next-task.md                 # The resume file -- drag into chat to continue
+├── tasks/                       # Task planning and execution
+│   └── (empty, populated next)
+├── plans/                       # Implementation plans
+│   └── README.md               # Plan registry
+├── checkpoints/                 # Milestone summaries
+├── changelogs/                  # Session-by-session progress
+├── design-decisions/            # Key architectural choices
+├── coding-guidelines/           # Project-specific patterns
+├── wrong-assumptions/           # Documented incorrect premises
+└── dont-dos/                    # Anti-patterns discovered
+```
+
+**Flat organization philosophy:** All projects live at the same level under `_projects/`. Sub-projects (created via `@start-sub-project`) also live flat alongside their parents, linked through file contents rather than directory nesting.
+
+## Phase 4: Initial Task Breakdown
+
+After bootstrapping, generate an initial task breakdown:
+
+1. Based on the project goal, description, and success criteria, break the work into **3-5 tasks**
+2. Each task should be a meaningful, independently completable unit of work
+3. Tasks should be ordered by dependency (do first things first)
+4. Write the task breakdown to `tasks/T01_0_plan.md`
+
+The plan file should follow this format:
+
+```markdown
+# T01: Initial Task Plan
+
+**Created:** YYYY-MM-DD
+**Status:** Pending Review
+
+## Project Context
+- **Goal:** <goal>
+- **Type:** <type>
+- **Timeline:** <timeline>
+
+## Task Breakdown
+
+### Task 1: <title>
+**Description:** <what needs to happen>
+**Acceptance criteria:** <how we know it is done>
+**Estimated effort:** <rough estimate>
+
+### Task 2: <title>
+...
+
+### Task 3: <title>
+...
+
+## Execution Order
+1. Task 1 -- <why first>
+2. Task 2 -- <dependency or logical ordering reason>
+3. Task 3 -- <dependency or logical ordering reason>
+
+## Open Questions
+- <any ambiguities or decisions needed before starting>
+```
+
+## Phase 5: Plan Review
+
+**CRITICAL: Do not proceed past this point without explicit approval.**
+
+After writing `T01_0_plan.md`:
+
+1. Present the task plan to the developer
+2. Say: "Please review the task plan above. You can:"
+   - **Approve** -- "approve" or "looks good" to proceed
+   - **Request changes** -- describe what to adjust
+   - **Reject** -- "reject" to start over
+3. **Wait for the developer's response. Do not continue.**
+
+### On Feedback
+
+If the developer provides feedback:
+1. Capture their feedback in `tasks/T01_1_review.md`:
+   ```markdown
+   # T01: Plan Review
+
+   **Reviewed:** YYYY-MM-DD
+   **Reviewer:** Developer
+
+   ## Feedback
+   <developer's feedback verbatim or summarized>
+
+   ## Requested Changes
+   - <change 1>
+   - <change 2>
+   ```
+2. Create a revised plan in `tasks/T01_2_revised_plan.md` incorporating the feedback
+3. Present the revised plan and **wait for approval again**
+
+### On Approval
+
+When the developer approves:
+1. Confirm: "Plan approved. The project is ready for execution."
+2. Move to Phase 6 (Handoff)
+
+**DO NOT begin executing any tasks. This rule only creates the project and gets the plan approved.**
+
+## Phase 6: Handoff
+
+After plan approval, confirm what was created:
+
+```
+Project Created Successfully
+=============================
+
+Location:     _projects/YYYYMMDD.NN.project-name/
+Structure:    10 folders and files created
+Task Plan:    tasks/T01_0_plan.md (approved)
+
+To resume this project in any future chat:
+  Drag _projects/YYYYMMDD.NN.project-name/next-task.md into your chat.
+
+The next-task.md file contains everything the AI needs to:
+  1. Load all project context silently
+  2. Present your current status
+  3. Offer options for what to work on
+  4. Wait for your direction
+
+You are ready to start working.
+```
+
+## next-task.md Template
+
+The bootstrap script generates `next-task.md` with the following structure. If the script does not generate it or you need to create it manually, use this template:
+
+```markdown
+# Next Task: <project-name>
+
+## Project Location
+- **Project Root:** `_projects/YYYYMMDD.NN.project-name/`
+- **README:** `_projects/YYYYMMDD.NN.project-name/README.md`
+- **Task Plans:** `_projects/YYYYMMDD.NN.project-name/tasks/`
+- **Plans:** `_projects/YYYYMMDD.NN.project-name/plans/`
+- **Changelogs:** `_projects/YYYYMMDD.NN.project-name/changelogs/`
+- **Checkpoints:** `_projects/YYYYMMDD.NN.project-name/checkpoints/`
+- **Design Decisions:** `_projects/YYYYMMDD.NN.project-name/design-decisions/`
+- **Coding Guidelines:** `_projects/YYYYMMDD.NN.project-name/coding-guidelines/`
+- **Wrong Assumptions:** `_projects/YYYYMMDD.NN.project-name/wrong-assumptions/`
+- **Dont-Dos:** `_projects/YYYYMMDD.NN.project-name/dont-dos/`
+
+## Current Status
+- **Objective:** <goal>
+- **Phase:** Planning (initial task plan approved, ready to begin)
+- **Last Session:** Project creation
+
+## Rules of Engagement
+
+When this file is loaded into a chat, follow these steps exactly:
+
+### Step 1: Gather Context Silently
+
+Read the following without outputting their contents:
+1. All files in `changelogs/` (most recent first)
+2. All files in `tasks/` (to understand current plans and past execution)
+3. All files in `plans/` (to understand implementation approach)
+4. All files in `checkpoints/` (to understand milestones reached)
+5. All files in `design-decisions/`, `coding-guidelines/`, `wrong-assumptions/`, `dont-dos/` (project knowledge base)
+6. `README.md` (project overview)
+
+### Step 2: Present Status
+
+After reading everything, present a structured status summary:
+
+**Objective:** <the project goal>
+
+**Changelogs Reviewed:** <count> entries from <date range>
+
+**Completed:**
+- <bullet list of completed work>
+
+**Pending:**
+- <bullet list of remaining work>
+
+**Agreed Focus for This Session:**
+- <what was identified as next in the last session, if any>
+
+### Step 3: Present Options
+
+Offer 2-3 concrete options for what to work on this session:
+
+- **Option A (recommended):** <description and why it is recommended>
+- **Option B:** <alternative>
+- **Option C:** <another alternative, if applicable>
+
+### Step 4: Wait for Direction
+
+**Do not begin any work until the developer chooses an option or gives direction.**
+
+Once direction is given:
+1. Create a plan for the chosen work
+2. Present the plan for approval
+3. Execute only after approval
+
+### Execution Philosophy: Do-First
+
+When executing work:
+- **Do it yourself.** Do not provide instructions for the developer to follow manually. Write the code, create the files, run the commands.
+- **Request tools.** If you need information or access you do not have, ask for it specifically.
+- **Prepare everything, hand off the minimum.** If a task requires manual steps (like clicking a button in a UI), do everything possible programmatically and hand off only the irreducible manual step.
+- **Never leave bare instructions.** Instead of "create a file at X with Y contents", create the file. Instead of "run this command", run it.
+```
+
+## Notes
+
+- This rule creates projects, not executes them. Execution happens when the developer loads `next-task.md` in a future chat.
+- The framework is workspace-tool agnostic but optimized for Cursor.
+- Scripts require Python 3 (standard library only).
+- All generated paths use relative format for portability.
+- Keep the interview conversational but focused. Do not add commentary between questions.
+- NO agent teammate or persona system. The AI operates as a neutral assistant throughout.

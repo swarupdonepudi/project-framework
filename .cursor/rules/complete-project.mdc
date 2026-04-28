@@ -1,0 +1,202 @@
+---
+description: Action rule to mark a project as completed. Adds completion metadata, moves the project folder to .completed/, fixes path references, and commits everything.
+globs:
+alwaysApply: false
+---
+
+# Rule: Complete Project (action)
+
+Purpose: When invoked, mark a project as completed and archive it. Handles status updates, folder moves, path reference fixups, and parent project updates.
+
+Usage: Invoke as `@complete-project` when a project is done.
+
+## Two Modes
+
+This rule operates in two modes depending on the situation:
+
+- **Mode 1: Complete** -- Mark a project as completed, move it, and fix references. This is the standard workflow.
+- **Mode 2: Retroactive Fix** -- For projects that were already moved to `.completed/` manually without running the full fixup. This mode runs only the reference replacement step.
+
+---
+
+## Mode 1: Complete
+
+### Step 1: Identify the Project
+
+Determine which project to complete:
+
+- If `next-task.md` is already loaded in the current session, use that project
+- Otherwise, ask the user to provide the project folder name
+
+### Step 2: Validate
+
+Before proceeding, verify:
+
+1. The project folder exists in `_projects/` (not already in `.completed/`, `.on-hold/`, or `.shelved/`)
+2. The project has a `next-task.md` file
+3. The project is not already marked as completed
+
+If any check fails, report the issue and stop.
+
+### Step 3: Check for Active Sub-Projects (BLOCKING)
+
+Search `_projects/` for any sub-project folders that reference this project as their parent. A sub-project uses the `sp.` naming marker (e.g., `20260213.01.sp.oracle-provider`).
+
+If active (non-completed) sub-projects are found, this is a **blocking check**. Present:
+
+- **Option A**: Complete all active sub-projects first, then complete the parent. Walk through each sub-project completion.
+- **Option B**: Complete the parent only, leaving sub-projects as-is. The sub-projects will remain in `_projects/` but their parent links will point to `.completed/`.
+- **Option C**: Cancel. Do not complete anything.
+
+Wait for the user to choose before proceeding.
+
+### Step 4: Mark Project Status as Completed
+
+#### 4a. Update next-task.md
+
+Add a completion banner immediately after the Rules of Engagement section:
+
+```markdown
+---
+
+## PROJECT COMPLETED
+
+**Completed**: {YYYY-MM-DD}
+**Final Status**: All objectives met (or describe partial completion)
+**Sessions**: {total session count from changelogs}
+
+---
+```
+
+Update any status fields in the file to reflect completion.
+
+#### 4b. Update README.md
+
+Add completion status to the project's `README.md`:
+
+```markdown
+> **Status: COMPLETED** ({YYYY-MM-DD})
+```
+
+### Step 5: If Sub-Project, Update the Parent
+
+If the project being completed is a sub-project (has the `sp.` marker in its name):
+
+1. Find the parent project
+2. Update the parent's sub-project status table (mark this sub-project as completed)
+3. Update the parent's `next-task.md` to reflect the sub-project completion in the relevant bullet points
+
+### Step 6: Move Folder
+
+Move the project folder to `.completed/`:
+
+```bash
+mv _projects/{FOLDER} _projects/.completed/{FOLDER}
+```
+
+### Step 7: Fix Path References
+
+Run the reference replacement script to update any paths that point to the old location:
+
+```bash
+python3 _projects/_scripts/replace_project_references.py --folder "{FOLDER}"
+```
+
+This script finds all references to `_projects/{FOLDER}` across the repository and updates them to `_projects/.completed/{FOLDER}`.
+
+### Step 8: Verify and Report
+
+After the move and fixup:
+
+1. Verify at least 3 paths resolve correctly (e.g., `next-task.md`, `README.md`, a changelog file)
+2. Report what was done:
+   - Project folder moved
+   - Number of references updated
+   - Parent project updated (if applicable)
+   - Any issues encountered
+
+### Step 9: Commit Changes
+
+Commit all changes using `@commit-changes`. The commit message should indicate the project completion, e.g.:
+
+```
+chore(projects): complete {project-name}
+```
+
+---
+
+## Mode 2: Retroactive Fix
+
+For projects that were already moved to `_projects/.completed/` without running the reference fixup.
+
+### Usage
+
+The user provides one or more project folder names that are already in `.completed/`.
+
+### Steps
+
+1. **Verify** the folder exists in `_projects/.completed/`
+2. **Run the replacement script**:
+   ```bash
+   python3 _projects/_scripts/replace_project_references.py --folder "{FOLDER}"
+   ```
+3. **Report** how many references were updated
+4. **Commit** changes
+
+### Batch Mode
+
+If the user provides multiple folder names, run the fixup for each one sequentially and commit once at the end:
+
+```bash
+python3 _projects/_scripts/replace_project_references.py --folder "{FOLDER_1}"
+python3 _projects/_scripts/replace_project_references.py --folder "{FOLDER_2}"
+python3 _projects/_scripts/replace_project_references.py --folder "{FOLDER_3}"
+```
+
+---
+
+## Safety Properties
+
+The completion and reference fixup workflow has these safety properties:
+
+- **Idempotent**: Running the fixup script on an already-fixed project does not create double replacements. The script replaces `_projects/{FOLDER}` with `_projects/.completed/{FOLDER}` -- if the path already says `.completed/`, no replacement occurs.
+- **No double-replacement**: The script does not replace paths that already contain `.completed/`.
+- **Dry run**: The replacement script supports a `--dry-run` flag to preview changes without modifying files.
+- **No regex**: The replacement script uses exact string matching, not regex patterns, to avoid unexpected substitutions.
+
+## Example Sessions
+
+### Completing a Sub-Project
+
+```
+User: @complete-project
+AI: I see next-task.md is loaded for 20260213.01.sp.oracle-provider.
+    This is a sub-project of 20260212.01.cloud-provider-expansion.
+    No active sub-sub-projects found. Proceeding with completion.
+
+    [Adds completion banner to next-task.md]
+    [Updates README.md]
+    [Updates parent's sub-project status table]
+    [Moves folder to .completed/]
+    [Runs reference fixup -- 4 references updated]
+    [Commits changes]
+
+    Done. 20260213.01.sp.oracle-provider is now in .completed/.
+    Parent project updated: 1 of 3 sub-projects completed.
+```
+
+### Completing a Standalone Project
+
+```
+User: @complete-project
+AI: I see next-task.md is loaded for 20260428.01.api-migration.
+    No sub-projects found. Proceeding with completion.
+
+    [Adds completion banner to next-task.md]
+    [Updates README.md]
+    [Moves folder to .completed/]
+    [Runs reference fixup -- 2 references updated]
+    [Commits changes]
+
+    Done. 20260428.01.api-migration is now in .completed/.
+```

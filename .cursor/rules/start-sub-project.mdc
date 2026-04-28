@@ -1,0 +1,356 @@
+---
+description: Action rule to bootstrap a sub-project linked to a parent project. Lighter interview, inherits context from the parent, and creates a linked sub-project folder alongside the parent.
+globs:
+alwaysApply: false
+---
+
+# Rule: Start Sub-Project (action)
+
+Purpose: When invoked, create a sub-project that is linked to a parent project. Sub-projects are for pieces of work within a larger project that are big enough to warrant their own independent resumption, knowledge folders, and task tracking.
+
+Usage: Invoke as `@start-sub-project` when a piece of project work is large enough for independent tracking.
+
+## When to Use Sub-Projects vs Tasks
+
+| Situation | Use |
+|-----------|-----|
+| Work fits within a single session | Task within the parent project |
+| Work is a checklist item | Task within the parent project |
+| Work spans multiple sessions independently | Sub-project |
+| Work needs its own knowledge folders | Sub-project |
+| Work could be executed in parallel with other project work | Sub-project |
+| Work has its own distinct completion criteria | Sub-project |
+
+**Example:** A parent project "cloud-provider-expansion" plans to add 10 cloud providers. Each provider is a sub-project because it is independently executable, spans multiple sessions, and has its own task plan.
+
+## Naming Convention
+
+Sub-projects use the same date-sequence naming with an `sp.` marker:
+
+```
+YYYYMMDD.NN.sp.sub-project-name
+```
+
+- `YYYYMMDD` -- creation date
+- `NN` -- auto-incrementing sequence number (shared with regular projects for that day)
+- `sp.` -- sub-project marker (distinguishes from regular projects)
+- `sub-project-name` -- kebab-case descriptive name
+
+Sub-projects live **flat** alongside all other projects, not nested inside the parent:
+
+```
+_projects/
+  20260428.01.cloud-provider-expansion/     # Parent project
+  20260429.01.sp.oracle-provider/           # Sub-project
+  20260429.02.sp.azure-provider/            # Sub-project
+  20260429.03.some-unrelated-project/       # Regular project (shares sequence)
+```
+
+## Phase 1: Identify Parent Project
+
+Before starting the interview, determine the parent project.
+
+### Option A: Parent from Loaded Context
+
+If a `next-task.md` was loaded in this chat session, extract the parent project from it:
+- Read the project root path from the loaded `next-task.md`
+- Confirm with the developer: "I see you are working on `<parent-project-name>`. Is this the parent project for the sub-project? (yes/no)"
+
+### Option B: Developer Provides Parent
+
+If no context is loaded, ask:
+"Which parent project does this sub-project belong to? Provide the project folder name (e.g., `20260428.01.cloud-provider-expansion`)."
+
+**Validation:** Verify the parent project exists at `_projects/<parent-name>/`. If it does not exist, inform the developer and ask them to correct the name or create the parent first using `@start-project`.
+
+### Read Parent Context
+
+Once the parent is identified, silently read:
+- `_projects/<parent-name>/README.md` -- for project overview, tech stack, type, components
+- `_projects/<parent-name>/next-task.md` -- for current status
+
+These provide inherited context so the developer does not have to re-specify shared information.
+
+## Phase 2: Interview (Lighter)
+
+The interview is shorter than `@start-project` because tech stack, project type, and affected components are inherited from the parent.
+
+Ask the following questions **one at a time, in order**:
+
+### Question 1: Sub-Project Name (required)
+"What is the name of this sub-project? Use kebab-case (e.g., `oracle-provider`, `auth-module`, `data-layer`)."
+
+**Validation:** Must be non-empty, lowercase, kebab-case. Do not include the `sp.` prefix -- the script adds it.
+
+### Question 2: Description (required)
+"Describe this sub-project in 1-2 sentences. What specific piece of the parent project does it address?"
+
+### Question 3: Goal (required)
+"What is the specific goal of this sub-project? What does 'done' look like?"
+
+### Question 4: Parent Task Reference (optional)
+"Does this sub-project correspond to a specific task in the parent project? (e.g., 'Task 3: Add Oracle Provider') Press Enter to skip."
+
+### Question 5: Additional Context (optional)
+"Any additional context, constraints, or notes specific to this sub-project? Press Enter to skip."
+
+### Inherited from Parent (do not ask)
+
+The following are inherited from the parent project and should not be re-asked:
+- **Tech Stack** -- from parent README
+- **Project Type** -- from parent README
+- **Affected Components** -- from parent README (sub-project may narrow scope)
+
+## Phase 3: Confirmation
+
+Present a summary showing both inherited and new information:
+
+```
+Sub-Project Summary
+====================
+Parent:             <parent-project-name>
+Name:               sp.<sub-project-name>
+Full Folder:        YYYYMMDD.NN.sp.<sub-project-name>
+Description:        <description>
+Goal:               <goal>
+Parent Task Ref:    <reference or "None">
+Additional Context: <context or "None">
+
+Inherited from Parent:
+  Tech Stack:       <from parent>
+  Type:             <from parent>
+  Components:       <from parent>
+```
+
+Ask: "Does this look correct? (yes/no/edit)"
+
+## Phase 4: Bootstrap
+
+Run the bootstrap script:
+
+```bash
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+cd "$repo_root"
+python3 _projects/_scripts/bootstrap_sub_project.py \
+  --parent-path "_projects/<parent-folder-name>" \
+  --name "$SUB_PROJECT_NAME" \
+  --description "$SUB_PROJECT_DESC" \
+  --goal "$SUB_PROJECT_GOAL"
+```
+
+Replace the `$VARIABLES` with actual values. For optional fields that were skipped, omit the flags or pass empty strings.
+
+### What the Bootstrap Script Does
+
+1. **Creates the sub-project folder** at `_projects/YYYYMMDD.NN.sp.<name>/` with the standard structure:
+   ```
+   _projects/YYYYMMDD.NN.sp.sub-project-name/
+   ├── README.md                    # Includes "Parent Project" section
+   ├── next-task.md                 # Includes parent project links
+   ├── tasks/
+   ├── plans/
+   │   └── README.md
+   ├── checkpoints/
+   ├── changelogs/
+   ├── design-decisions/
+   ├── coding-guidelines/
+   ├── wrong-assumptions/
+   └── dont-dos/
+   ```
+
+2. **Creates README.md** with a "Parent Project" section linking back to the parent
+
+3. **Creates next-task.md** with:
+   - Sub-project folder paths
+   - Parent project folder paths (for inherited knowledge)
+   - Rules of Engagement that include reading parent context
+
+4. **Creates `tasks/T01_0_plan.md`** as an empty plan template ready for the initial task breakdown
+
+5. **Updates the parent project**:
+   - Adds sub-project entry to the parent's `README.md`
+   - Adds sub-project reference to the parent's `next-task.md`
+
+## Phase 5: Initial Task Breakdown
+
+After bootstrapping, generate an initial task breakdown for the sub-project:
+
+1. Based on the sub-project goal and parent context, break the work into **3-5 tasks**
+2. Tasks should be scoped to the sub-project only (not the broader parent work)
+3. Write the breakdown to `tasks/T01_0_plan.md`
+
+Use the same plan format as `@start-project`:
+
+```markdown
+# T01: Initial Task Plan
+
+**Created:** YYYY-MM-DD
+**Status:** Pending Review
+**Parent Project:** <parent-project-name>
+
+## Sub-Project Context
+- **Goal:** <sub-project goal>
+- **Parent Goal:** <parent project goal>
+- **Inherited Tech:** <from parent>
+
+## Task Breakdown
+
+### Task 1: <title>
+...
+```
+
+## Phase 6: Plan Review
+
+**CRITICAL: Do not proceed past this point without explicit approval.**
+
+Same review process as `@start-project`:
+
+1. Present the task plan
+2. Wait for approval, feedback, or rejection
+3. On feedback: capture in `T01_1_review.md`, create revised plan in `T01_2_revised_plan.md`, wait for approval again
+4. On approval: proceed to handoff
+
+**DO NOT begin executing any tasks.**
+
+## Phase 7: Handoff
+
+After plan approval, confirm what was created:
+
+```
+Sub-Project Created Successfully
+==================================
+
+Location:        _projects/YYYYMMDD.NN.sp.sub-project-name/
+Parent:          _projects/<parent-project-name>/
+Structure:       10 folders and files created
+Task Plan:       tasks/T01_0_plan.md (approved)
+Parent Updated:  README.md and next-task.md updated with sub-project reference
+
+To resume this sub-project in any future chat:
+  Drag _projects/YYYYMMDD.NN.sp.sub-project-name/next-task.md into your chat.
+
+The sub-project's next-task.md also loads parent project knowledge folders,
+so the AI has full context from both the parent and sub-project.
+```
+
+## next-task.md Template for Sub-Projects
+
+The bootstrap script generates `next-task.md` with parent project integration. If you need to create it manually, use this template:
+
+```markdown
+# Next Task: <sub-project-name>
+
+## Sub-Project Location
+- **Project Root:** `_projects/YYYYMMDD.NN.sp.sub-project-name/`
+- **README:** `_projects/YYYYMMDD.NN.sp.sub-project-name/README.md`
+- **Task Plans:** `_projects/YYYYMMDD.NN.sp.sub-project-name/tasks/`
+- **Plans:** `_projects/YYYYMMDD.NN.sp.sub-project-name/plans/`
+- **Changelogs:** `_projects/YYYYMMDD.NN.sp.sub-project-name/changelogs/`
+- **Checkpoints:** `_projects/YYYYMMDD.NN.sp.sub-project-name/checkpoints/`
+- **Design Decisions:** `_projects/YYYYMMDD.NN.sp.sub-project-name/design-decisions/`
+- **Coding Guidelines:** `_projects/YYYYMMDD.NN.sp.sub-project-name/coding-guidelines/`
+- **Wrong Assumptions:** `_projects/YYYYMMDD.NN.sp.sub-project-name/wrong-assumptions/`
+- **Dont-Dos:** `_projects/YYYYMMDD.NN.sp.sub-project-name/dont-dos/`
+
+## Parent Project
+- **Parent Root:** `_projects/<parent-project-name>/`
+- **Parent README:** `_projects/<parent-project-name>/README.md`
+- **Parent Design Decisions:** `_projects/<parent-project-name>/design-decisions/`
+- **Parent Coding Guidelines:** `_projects/<parent-project-name>/coding-guidelines/`
+- **Parent Wrong Assumptions:** `_projects/<parent-project-name>/wrong-assumptions/`
+- **Parent Dont-Dos:** `_projects/<parent-project-name>/dont-dos/`
+- **Parent Changelogs:** `_projects/<parent-project-name>/changelogs/`
+
+## Current Status
+- **Objective:** <sub-project goal>
+- **Parent Objective:** <parent project goal>
+- **Phase:** Planning (initial task plan approved, ready to begin)
+- **Last Session:** Sub-project creation
+
+## Rules of Engagement
+
+When this file is loaded into a chat, follow these steps exactly:
+
+### Step 1: Gather Context Silently
+
+Read the following without outputting their contents:
+
+**Sub-project context (read first):**
+1. All files in `changelogs/` (most recent first)
+2. All files in `tasks/`
+3. All files in `plans/`
+4. All files in `checkpoints/`
+5. All files in `design-decisions/`, `coding-guidelines/`, `wrong-assumptions/`, `dont-dos/`
+6. `README.md`
+
+**Parent project context (inherited knowledge):**
+7. Parent `README.md`
+8. All files in parent `design-decisions/`
+9. All files in parent `coding-guidelines/`
+10. All files in parent `wrong-assumptions/`
+11. All files in parent `dont-dos/`
+12. Parent `changelogs/` (most recent 3 entries, for awareness of broader project progress)
+
+### Step 2: Present Status
+
+After reading everything, present a structured status summary:
+
+**Sub-Project Objective:** <the sub-project goal>
+**Parent Project:** <parent name> -- <parent goal summary>
+
+**Changelogs Reviewed:** <count> sub-project entries, <count> parent entries
+
+**Completed:**
+- <bullet list of completed work>
+
+**Pending:**
+- <bullet list of remaining work>
+
+**Agreed Focus for This Session:**
+- <what was identified as next in the last session, if any>
+
+### Step 3: Present Options
+
+Offer 2-3 concrete options for what to work on this session:
+
+- **Option A (recommended):** <description and why>
+- **Option B:** <alternative>
+- **Option C:** <another alternative, if applicable>
+
+### Step 4: Wait for Direction
+
+**Do not begin any work until the developer chooses an option or gives direction.**
+
+Once direction is given:
+1. Create a plan for the chosen work
+2. Present the plan for approval
+3. Execute only after approval
+
+### Execution Philosophy: Do-First
+
+When executing work:
+- **Do it yourself.** Do not provide instructions for the developer to follow manually. Write the code, create the files, run the commands.
+- **Request tools.** If you need information or access you do not have, ask for it specifically.
+- **Prepare everything, hand off the minimum.** If a task requires manual steps (like clicking a button in a UI), do everything possible programmatically and hand off only the irreducible manual step.
+- **Never leave bare instructions.** Instead of "create a file at X with Y contents", create the file. Instead of "run this command", run it.
+```
+
+## Key Differences from @start-project
+
+| Aspect | @start-project | @start-sub-project |
+|--------|---------------|-------------------|
+| **Interview length** | 12 questions (7 required, 5 optional) | 5 questions (3 required, 2 optional) |
+| **Naming** | `YYYYMMDD.NN.name` | `YYYYMMDD.NN.sp.name` |
+| **Parent link** | None | Links to parent project |
+| **Inherited fields** | None | Tech stack, type, components from parent |
+| **Parent updates** | None | Updates parent README and next-task.md |
+| **next-task.md** | Own context only | Own context + parent knowledge folders |
+| **Prerequisite** | None | Parent project must exist |
+
+## Notes
+
+- Sub-projects are independently resumable. Each has its own `next-task.md`.
+- Parent knowledge folders (design-decisions, coding-guidelines, wrong-assumptions, dont-dos) are read by the sub-project for inherited context, but the sub-project writes to its own knowledge folders.
+- The sequence number `NN` is shared across all projects and sub-projects for a given day. A sub-project created after two regular projects on the same day would be `NN=03`.
+- This rule creates sub-projects, not executes them. Execution happens when the developer loads `next-task.md` in a future chat.
+- NO agent teammate or persona system. The AI operates as a neutral assistant throughout.

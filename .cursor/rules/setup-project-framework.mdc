@@ -1,0 +1,131 @@
+---
+description: Action rule to set up the Project Framework for a user's workspace. Interviews the user about their setup (monorepo vs multi-repo), explains the framework components, and bootstraps the _projects/ directory and Cursor rules.
+globs:
+alwaysApply: false
+---
+
+# Rule: Setup Project Framework (action)
+
+Purpose: When invoked, interview the user about their workspace setup, explain how the framework works for their situation, and bootstrap the `_projects/` directory structure and Cursor rules in their workspace.
+
+Usage: Invoke as `@setup-project-framework` when you want to set up the framework for your own work.
+
+## High-Level Flow
+
+1. **Interview Phase**: Understand the user's workspace setup
+2. **Explanation Phase**: Explain how the framework fits their setup
+3. **Bootstrap Phase**: Create the directory structure and copy rules
+4. **Verification Phase**: Confirm everything is in place
+5. **First Project Phase**: Offer to create their first project
+
+## Interview Questions
+
+### 1. Workspace Type (required)
+
+Ask: "Are you working in a **monorepo** (one repository for all your code) or a **multi-repo** setup (multiple repositories in your Cursor workspace)?"
+
+**Explain the difference:**
+- **Monorepo**: The `_projects/` folder lives inside your single repository. Everything is in one place. This is the simplest setup.
+- **Multi-repo**: The `_projects/` folder lives in a separate personal repository (like this project-framework repo). Your code changes happen in other repositories. All repos are added to the same Cursor workspace. This keeps your personal execution orchestrated in one repo while code changes can span any number of repos.
+
+### 2. Repository Location (required)
+
+- **Monorepo**: "What is the path to your repository?" (e.g., `~/scm/github.com/myorg/my-repo`)
+- **Multi-repo**: "What is the path to your personal project-framework repository?" (should be this repo if they cloned it)
+
+### 3. Workspace Repositories (multi-repo only)
+
+"Which other repositories are in your Cursor workspace? List the paths so we can understand the full workspace."
+
+### 4. Confirmation
+
+Present a summary of what will be created and ask for confirmation before proceeding.
+
+## Bootstrap Process
+
+### For Monorepo Setup
+
+1. **Create `_projects/` directory** in the repository root:
+   ```bash
+   repo_root="<from-interview>"
+   mkdir -p "${repo_root}/_projects/_scripts/templates"
+   mkdir -p "${repo_root}/_projects/.completed"
+   mkdir -p "${repo_root}/_projects/.on-hold"
+   mkdir -p "${repo_root}/_projects/.shelved"
+   ```
+
+2. **Copy scripts**: Copy the bootstrap scripts from this project-framework repo to the target repo:
+   - `bootstrap_project.py`
+   - `bootstrap_sub_project.py`
+   - `replace_project_references.py`
+   - `start-project.sh`
+   - All template files from `templates/`
+
+3. **Copy Cursor rules**: Copy the `.mdc` rule files to the target repo's `.cursor/rules/` directory:
+   - `start-project.mdc`
+   - `start-sub-project.mdc`
+   - `wrap-up-session.mdc`
+   - `complete-project.mdc`
+   - `create-project-changelog.mdc`
+   - `commit-changes.mdc`
+   - `improve-project-workflow.mdc`
+
+4. **Create `_projects/README.md`**: Generate a README for the projects directory.
+
+5. **Create `.gitkeep` files**: Ensure empty lifecycle directories are tracked by git.
+
+### For Multi-Repo Setup
+
+1. **Use this repository as the framework home**: The `_projects/` folder and scripts already exist in this project-framework repo.
+
+2. **Ensure workspace configuration**: Confirm that this project-framework repo and all work repos are in the same Cursor workspace.
+
+3. **Copy Cursor rules to work repos** (optional): If the user wants rule access from within their work repos, copy the relevant `.mdc` files. Otherwise, they can invoke rules from the project-framework repo context.
+
+4. **Explain the workflow**:
+   - Projects are created and managed in the project-framework repo
+   - Code changes happen in the work repos
+   - The `next-task.md` file references paths across the workspace
+   - Cursor can access all repos in the workspace
+
+## Post-Bootstrap
+
+### Explain the Cursor Rules
+
+Walk the user through each available rule:
+
+| Rule | When to Use |
+|------|-------------|
+| `@start-project` | When you identify work spanning multiple sessions |
+| `@start-sub-project` | When a piece of project work is large enough for independent tracking |
+| `@wrap-up-session` | At the end of every working session |
+| `@complete-project` | When a project is done |
+| `@create-project-changelog` | Automatically invoked by wrap-up, but can be used standalone |
+| `@commit-changes` | When you want to commit with conventional commit format |
+| `@improve-project-workflow` | When you want to suggest improvements to the framework |
+
+### Explain the Session Workflow
+
+1. **Start**: Drag `_projects/YYYYMMDD.NN.name/next-task.md` into chat
+2. **AI loads context**: Reads changelogs, plans, tasks, knowledge folders
+3. **AI presents status**: Shows what is done, what is pending, options
+4. **You choose**: Pick an option or give direction
+5. **AI executes**: Creates a plan, you approve, it implements
+6. **Wrap up**: `@wrap-up-session` saves everything and commits
+
+### Offer First Project
+
+"Would you like to create your first project now? If so, I'll start the `@start-project` interview."
+
+## Error Handling
+
+- If the target directory already has `_projects/`, ask before overwriting
+- If scripts fail to copy, provide manual instructions
+- If the user is unsure about monorepo vs multi-repo, help them decide based on their situation
+
+## Notes
+
+- The framework is workspace-tool agnostic in principle but optimized for Cursor
+- Scripts require Python 3 (standard library only, no pip dependencies)
+- The framework works with any git-based workflow
+- All generated paths use relative format for portability

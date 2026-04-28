@@ -1,0 +1,107 @@
+---
+description: Action rule to create a project-scoped changelog entry for the current session. Determines the session number, generates a timestamped file, and writes a structured summary of what was done.
+globs:
+alwaysApply: false
+---
+
+# Rule: Create Project Changelog (action)
+
+Purpose: When invoked, create a changelog entry for the current session in the project's `changelogs/` folder. This is also called automatically by `@wrap-up-session`.
+
+Usage: Invoke as `@create-project-changelog` at the end of a session, or let `@wrap-up-session` invoke it.
+
+## Protocol
+
+### Step 1: Identify the Project
+
+Determine which project this changelog belongs to:
+
+- If `next-task.md` is loaded in the current session, use that project
+- Otherwise, ask the user to provide the project folder name
+
+### Step 2: Determine Session Number
+
+Count the existing changelog files in the project's `changelogs/` directory, excluding `.gitkeep`:
+
+```bash
+ls -1 _projects/{project-folder}/changelogs/ | grep -v '.gitkeep' | wc -l
+```
+
+The new session number is the count + 1. Pad to three digits (e.g., `001`, `002`, `015`).
+
+### Step 3: Get Timestamp
+
+Get the current timestamp for the changelog metadata:
+
+```bash
+date +"%Y-%m-%d-%H%M%S"
+```
+
+Extract the date portion (`YYYY-MM-DD`) for the frontmatter `date` field.
+
+### Step 4: Create the Changelog File
+
+Create the changelog at:
+
+```
+_projects/{project-folder}/changelogs/{NNN}-{summary-slug}.md
+```
+
+Where:
+- `{NNN}` is the zero-padded session number (e.g., `001`)
+- `{summary-slug}` is a kebab-case slug summarizing the session (3-5 words)
+
+Example: `_projects/20260428.01.api-migration/changelogs/003-implement-auth-endpoints.md`
+
+## File Content Format
+
+### Frontmatter
+
+```yaml
+---
+date: "{YYYY-MM-DD}"
+session: {session number}
+tags: [{relevant, domain, tags}]
+summary: >
+  {2-3 sentence summary of what was accomplished in this session.
+  Cover the primary work done and any significant outcomes.}
+---
+```
+
+Tags should reflect the domains touched during the session (e.g., `backend`, `api`, `testing`, `refactor`, `documentation`, `bugfix`, `design-decision`).
+
+### Body
+
+The body has three sections:
+
+#### What Was Done
+
+Describe the work completed during this session. Use bullet points for discrete items. Group related items together. Be specific about what was implemented, fixed, or changed -- reference file paths where helpful.
+
+#### Decisions Made
+
+Document any significant decisions from the session:
+- What was decided
+- Why (brief rationale)
+- What alternatives were considered (if any)
+
+If no significant decisions were made, write "No significant decisions this session." Do not omit the section.
+
+#### What Is Pending
+
+List what remains to be done:
+- Immediate next steps for the next session
+- Open questions or blockers
+- Items deferred from this session
+
+If nothing is pending (project is complete), write "Project objectives met. No pending items."
+
+## Sizing Guidance
+
+Match the changelog length to the session's substance:
+
+- **Small sessions** (quick fix, minor update, single task): 30-80 lines. A few bullets under each section. Do not pad short sessions with filler.
+- **Medium sessions** (feature implementation, multi-task work): 80-150 lines. Detailed bullets, decision rationale, clear pending items.
+- **Large sessions** (major milestone, complex debugging, architectural work): 150-250 lines. Thorough coverage of what was done, detailed decision documentation, comprehensive pending list.
+
+Do not exceed 250 lines. If a session produced that much substance, the excess belongs in knowledge folders (`design-decisions/`, `coding-guidelines/`, etc.), not in the changelog.

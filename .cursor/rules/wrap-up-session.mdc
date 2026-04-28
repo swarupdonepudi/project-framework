@@ -1,0 +1,105 @@
+---
+description: Action rule to wrap up a project session. Updates next-task.md with session progress, saves plans, creates a changelog entry, and commits everything to git.
+globs:
+alwaysApply: false
+---
+
+# Rule: Wrap Up Session (action)
+
+Purpose: When invoked, execute the end-of-session workflow for the current project. This captures all progress, decisions, and artifacts from the session so the next session can resume instantly.
+
+Usage: Invoke as `@wrap-up-session` at the end of any working session.
+
+## Step 0: Ensure Rules of Engagement Are Present
+
+Before any other wrap-up work, verify that `next-task.md` has the **Rules of Engagement** section at the top.
+
+If missing, add it from the canonical template defined in `@start-project`. The Rules of Engagement section instructs the AI on how to behave when the file is loaded into a new session.
+
+Do not proceed with wrap-up until this section is confirmed present.
+
+## Step 1: Update Project Status
+
+Update `next-task.md` with a **COMPLETED** section for this session. Include:
+
+- **Summary**: 2-3 sentence description of what was accomplished
+- **Deliverables**: List of concrete outputs (files created, features implemented, bugs fixed)
+- **Key Decisions**: Any significant choices made during the session with brief rationale
+- **Files Changed**: List of files that were created, modified, or deleted
+
+Place this section in the appropriate location within the session history area of `next-task.md`.
+
+## Step 2: Save Plans to Project Folder
+
+Check if any plans were created during this session (look in `~/.cursor/plans/`).
+
+If plans exist:
+
+1. Copy them to the project's `plans/` folder
+2. Create or update `plans/README.md` with the plan registry
+
+The plan registry is a table tracking all plans for this project:
+
+```markdown
+# Plan Registry
+
+| Plan | Status | Created | Completed | Description |
+|------|--------|---------|-----------|-------------|
+| plan-name.md | completed | 2026-04-28 | 2026-04-28 | Brief description |
+| another-plan.md | in-progress | 2026-04-28 | - | Brief description |
+```
+
+## Step 3: Update Objectives for Next Session
+
+Ensure `next-task.md` has updated objectives reflecting what was agreed for the next session. This includes:
+
+- What the next session should focus on
+- Any open questions or blockers
+- Recommended approach or options to consider
+
+If the user explicitly stated next-session goals during the session, use those. If not, infer reasonable next steps from the work completed and ask the user to confirm.
+
+## Step 4: Update Current Step Section
+
+Update the current step bullet list in `next-task.md` to include today's session. This provides a high-level breadcrumb trail of session progression.
+
+## Step 5: Create Session Changelog (MANDATORY)
+
+Follow the `@create-project-changelog` protocol to create a changelog entry for this session.
+
+Every session produces a changelog entry. This is non-optional. Even if the session was short or exploratory, a changelog must be created to maintain the project's history.
+
+## Step 6: Commit Changes
+
+After all wrap-up artifacts are created, commit everything to git using `@commit-changes`.
+
+The commit should include all files modified during wrap-up: `next-task.md`, changelog entries, plans, and any other project artifacts updated during the session.
+
+## Next Session Engagement Pattern
+
+When `next-task.md` is loaded into a new chat session, the AI follows this sequence:
+
+1. **Gather Context Silently**: Read changelogs, plans, tasks, and knowledge folders without outputting their contents. Build a complete picture of the project state.
+2. **Present Status**: Show:
+   - Overall objective
+   - Which changelogs were reviewed
+   - What has been completed
+   - What is pending
+   - Recommended focus for this session
+3. **Present Options**:
+   - **Option A** (recommended): The most logical next step based on project state
+   - **Option B**: An alternative approach or different priority
+   - **Option C**: A different direction or maintenance task
+4. **Wait for Direction**: Do not begin any work. Wait for the user to choose an option or provide their own direction. Never auto-execute.
+
+## Plan Status Tracking
+
+Plans transition through these states during sessions:
+
+- **Starting a plan**: When a new plan is created and approved, record it in `plans/README.md` with status `in-progress` and the creation date.
+- **Completing a plan**: When a plan's work is finished, update its status to `completed` and fill in the completion date.
+- **Abandoning a plan**: When a plan is no longer relevant (superseded, requirements changed), update its status to `abandoned` with a brief note on why.
+
+## No Wasteful Intermediate Cleanup
+
+Do not reorganize, reformat, or "clean up" project files during wrap-up unless explicitly asked. The wrap-up workflow is about capturing state, not polishing it. Save structural improvements for dedicated sessions.

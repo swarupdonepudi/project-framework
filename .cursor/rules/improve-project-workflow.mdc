@@ -1,0 +1,137 @@
+---
+description: Gather feedback and implement improvements to the project framework workflow
+alwaysApply: false
+---
+
+# Improve Project Workflow
+
+Ask-only rule for gathering structured feedback about the project framework and implementing targeted improvements.
+
+## High-Level Flow
+
+1. **Discovery** — Understand which aspect of the framework needs improvement
+2. **Analysis** — Gather detailed information about the pain point or desired enhancement
+3. **Proposal** — Suggest specific changes with before/after comparisons
+4. **Implementation** — Make approved changes
+5. **Validation** — Confirm the improvements work as intended
+
+## Interview Structure
+
+### Phase 1: Discovery
+
+Start by understanding the user's intent:
+
+- **Which aspect** of the project framework needs improvement?
+  - Project creation / scaffolding
+  - Project resumption / re-entry
+  - Documentation and metadata
+  - Automation and scripts
+  - Templates and structure
+  - Configuration and settings
+- **What type of issue** are you experiencing?
+  - Something is broken or produces errors
+  - Something works but is awkward or slow
+  - A capability is missing entirely
+  - An existing feature needs to behave differently
+
+### Phase 2: Detailed Analysis
+
+Ask targeted follow-up questions based on the chosen aspect:
+
+**Project creation / scaffolding:**
+- What project types do you create most often?
+- Which steps in the creation process feel unnecessary or repetitive?
+- Are there inputs the framework should infer automatically?
+
+**Project resumption / re-entry:**
+- How do you typically return to a paused project?
+- What context do you lose between sessions?
+- What information would help you resume faster?
+
+**Documentation and metadata:**
+- Which metadata fields are useful vs. never referenced?
+- Is there information you wish was captured at creation time?
+- How do you search for or browse existing projects?
+
+**Automation and scripts:**
+- Which manual steps should be automated?
+- Are there scripts that fail silently or produce confusing output?
+- What external tools or services should the framework integrate with?
+
+**Templates and structure:**
+- Which templates do you use most? Which do you never use?
+- What's missing from the default project structure?
+- Are naming conventions clear and consistent?
+
+### Phase 3: Specific Feedback
+
+Drill into the concrete details:
+
+- Can you walk through the exact steps where the friction occurs?
+- What does the current behavior look like vs. what you expected?
+- How frequently do you hit this issue?
+- Is this blocking you or just an annoyance?
+
+## Common Improvement Categories
+
+| Category                  | Scope                                              |
+|---------------------------|---------------------------------------------------|
+| **Bug fixes**             | Scripts failing, incorrect defaults, race conditions |
+| **Feature enhancements**  | New capabilities, additional metadata, integrations  |
+| **Usability improvements**| Better prompts, clearer errors, fewer manual steps   |
+| **Workflow optimizations**| Faster creation, smarter defaults, reduced repetition|
+
+## Implementation Approach
+
+### Proposal Generation
+
+Before making changes, present a proposal:
+
+- Describe the current behavior and the proposed behavior
+- Show before/after examples where applicable
+- List all files that will be modified
+- Call out any risks or backward-compatibility concerns
+
+### Files Commonly Modified
+
+Changes typically touch one or more of these areas:
+
+- **Scripts** — Creation, resumption, and utility shell scripts
+- **Rules** — `.cursor/rules/*.mdc` files that guide agent behavior
+- **Templates** — Project scaffolding templates and directory structures
+- **Configuration** — Default settings, metadata schemas, naming conventions
+- **Documentation** — READMEs, inline help text, usage examples
+
+### Validation
+
+After implementation, confirm with the user:
+
+- Does the new behavior match what you described?
+- Have you tested it with a real project?
+- Are there edge cases we should handle?
+- Should this change be documented anywhere?
+
+## Common Quick Fixes
+
+Ready-to-apply solutions for frequently requested improvements:
+
+**Flexible project naming:**
+- Allow hyphens, underscores, and mixed case in project names
+- Normalize names for filesystem use while preserving display names
+
+**Richer metadata:**
+- Add fields for project status, priority, tags, or team assignment
+- Capture creation timestamp and last-active timestamp automatically
+
+**Better checkpoints:**
+- Save progress markers at key stages during project setup
+- Allow resuming from the last successful checkpoint instead of restarting
+
+**Improved error messages:**
+- Replace generic failures with specific guidance on what went wrong and how to fix it
+- Validate inputs early and surface problems before any work begins
+
+**Project archiving:**
+- Move completed or abandoned projects to an archive directory
+- Preserve all metadata and history for future reference
+- Allow un-archiving without data loss

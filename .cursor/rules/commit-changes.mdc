@@ -1,0 +1,140 @@
+---
+description: Commit changes with appropriate conventional commit messages
+alwaysApply: false
+---
+
+# Commit Changes
+
+Action rule for committing changes using the Conventional Commits specification.
+
+## Commit Message Format
+
+```
+<type>(<scope>): <subject>
+
+[optional body]
+
+[optional footer]
+```
+
+## Types
+
+| Type       | When to use                                      |
+|------------|--------------------------------------------------|
+| `feat`     | New feature or capability                        |
+| `fix`      | Bug fix                                          |
+| `refactor` | Code restructuring without behavior change       |
+| `docs`     | Documentation only                               |
+| `test`     | Adding or updating tests                         |
+| `chore`    | Maintenance, dependencies, tooling               |
+| `perf`     | Performance improvement                          |
+| `style`    | Formatting, whitespace, linting (no logic change)|
+| `ci`       | CI/CD configuration and scripts                  |
+| `revert`   | Reverting a previous commit                      |
+
+## Scope
+
+Derive the scope from the files and components affected by the change:
+
+- Use the **top-level directory or module name** as scope (e.g., `api`, `auth`, `cli`, `db`)
+- For project framework changes (templates, scaffolding, workflow scripts): use `projects` scope
+- For cross-cutting changes that span multiple modules: use a broader scope or omit scope entirely
+- When changes are confined to a single component or package, use that component's name
+
+Examples: `feat(api): ...`, `fix(auth): ...`, `chore(projects): ...`, `refactor(cli): ...`
+
+## Subject Rules
+
+- Use **imperative mood** ("add", "fix", "remove" — not "added", "fixes", "removed")
+- No period at the end
+- Keep under 72 characters
+- Be specific but concise — describe *what* changed, not *how*
+
+## Body Guidelines (optional)
+
+Include a body when:
+- The change is complex or touches multiple related concerns
+- There are breaking changes that need explanation
+- The "why" behind the change isn't obvious from the subject
+- Multiple related modifications are bundled together
+
+Body formatting:
+- Wrap lines at 72 characters
+- Explain **what** and **why**, not how
+- Use bullet points for listing multiple changes
+- Reference related issues where applicable
+
+## Footer
+
+- `BREAKING CHANGE: <description>` for any backward-incompatible change
+- `Closes #<issue>` or `Fixes #<issue>` for issue references
+
+## Execution Steps
+
+1. **Analyze changes**: Run `git status` and `git diff --stat` to understand the full scope of modifications. Cross-reference with the conversation context.
+2. **Determine type and scope**: Identify the primary type from the table above. Derive scope from the affected file paths and directories.
+3. **Craft the commit message**: Write the subject line. Add body/footer only when warranted.
+4. **Stage and commit**:
+   ```bash
+   git add -A && git commit -m "<type>(<scope>): <subject>"
+   ```
+   If the commit needs a body or footer, use a heredoc:
+   ```bash
+   git add -A && git commit -m "$(cat <<'EOF'
+   <type>(<scope>): <subject>
+
+   <body>
+
+   <footer>
+   EOF
+   )"
+   ```
+
+## Examples
+
+Simple feature:
+```
+feat(templates): add Python project template
+```
+
+Bug fix with context:
+```
+fix(scripts): handle spaces in project directory names
+
+The init script failed when the target directory path contained spaces.
+Quoted all path variables in shell expansion to prevent word splitting.
+
+Fixes #42
+```
+
+Refactor spanning multiple files:
+```
+refactor(cli): extract validation logic into shared module
+
+Moved duplicate input validation from create.sh and resume.sh into
+a shared validate.sh module to reduce repetition and ensure consistent
+error messages across commands.
+```
+
+Breaking change:
+```
+feat(config): switch project config from YAML to TOML
+
+Migrate all project configuration files from YAML to TOML format
+for better type safety and simpler parsing.
+
+BREAKING CHANGE: existing .project.yaml files must be converted to
+.project.toml format. Run `pf migrate-config` to convert automatically.
+```
+
+Documentation update:
+```
+docs(readme): add setup instructions for Linux
+```
+
+## Important Notes
+
+- Review changes before committing when they are significant or touch critical paths
+- Stage selectively with `git add <file>` when a subset of changes should be committed separately
+- Never skip pre-commit hooks (`--no-verify`) unless explicitly requested by the user
+- Run `git status` after committing to confirm no unstaged changes were left behind
