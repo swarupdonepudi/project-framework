@@ -1,0 +1,211 @@
+---
+description: Action rule to bootstrap the Project Framework into another Git repository. Copies rules, scripts, templates, and lifecycle folders into a target repo given its path on disk.
+globs:
+alwaysApply: false
+---
+
+# Rule: Add Project Framework to Another Repo (action)
+
+Purpose: When invoked with a target repository path, copy the entire Project Framework (Cursor rules, Python scripts, templates, lifecycle folders) into that repository so it is immediately ready for project creation and execution.
+
+Usage: Invoke as `@add-project-framework-to-repo` and provide the absolute path to the target Git repository.
+
+Example:
+```
+@add-project-framework-to-repo /Users/username/scm/github.com/org/my-repo
+```
+
+---
+
+## Step 1: Get Target Path
+
+If the user provided a path alongside the rule invocation, use it. Otherwise ask:
+
+"What is the absolute path to the Git repository where you want to add the Project Framework?"
+
+Store this as `TARGET_REPO`.
+
+## Step 2: Validate
+
+Run these checks:
+
+```bash
+# Must exist
+ls -d "$TARGET_REPO" 2>/dev/null
+
+# Must be a git repo
+git -C "$TARGET_REPO" rev-parse --show-toplevel 2>/dev/null
+
+# Check if _projects/ already exists
+ls -d "$TARGET_REPO/_projects" 2>/dev/null
+```
+
+**If the path does not exist or is not a git repo**: stop and report the error.
+
+**If `_projects/` already exists**: ask the user:
+- "This repository already has a `_projects/` directory. Would you like to overwrite it with a fresh framework setup, or cancel?"
+- If cancel, stop.
+- If overwrite, proceed (existing project folders inside `_projects/` will not be deleted -- only framework files like `_scripts/` and rules are replaced).
+
+## Step 3: Determine Source Paths
+
+The source is this repository (the project-framework anchor repo). Determine its root:
+
+```bash
+FRAMEWORK_ROOT="$(git rev-parse --show-toplevel)"
+```
+
+This gives us access to:
+- `$FRAMEWORK_ROOT/.cursor/rules/` -- Cursor rules
+- `$FRAMEWORK_ROOT/_projects/_scripts/` -- Python scripts and templates
+- `$FRAMEWORK_ROOT/_projects/README.md` -- Projects directory guide
+
+## Step 4: Create Directory Structure
+
+```bash
+mkdir -p "$TARGET_REPO/_projects/_scripts/templates"
+mkdir -p "$TARGET_REPO/_projects/.completed"
+mkdir -p "$TARGET_REPO/_projects/.on-hold"
+mkdir -p "$TARGET_REPO/_projects/.shelved"
+mkdir -p "$TARGET_REPO/.cursor/rules"
+```
+
+## Step 5: Copy Operational Cursor Rules
+
+Copy these rules from `$FRAMEWORK_ROOT/.cursor/rules/` to `$TARGET_REPO/.cursor/rules/`:
+
+- `start-project.mdc`
+- `start-sub-project.mdc`
+- `wrap-up-session.mdc`
+- `complete-project.mdc`
+- `shelve-project.mdc`
+- `hold-project.mdc`
+- `create-project-changelog.mdc`
+- `commit-changes.mdc`
+
+```bash
+for rule in start-project.mdc start-sub-project.mdc wrap-up-session.mdc complete-project.mdc shelve-project.mdc hold-project.mdc create-project-changelog.mdc commit-changes.mdc; do
+  cp "$FRAMEWORK_ROOT/.cursor/rules/$rule" "$TARGET_REPO/.cursor/rules/$rule"
+done
+```
+
+**Do NOT copy** these meta rules (they stay in the anchor repo only):
+- `what-is-project-framework.mdc`
+- `setup-project-framework.mdc`
+- `improve-project-workflow.mdc`
+- `add-project-framework-to-repo.mdc`
+
+## Step 6: Copy Scripts
+
+```bash
+cp "$FRAMEWORK_ROOT/_projects/_scripts/bootstrap_project.py" "$TARGET_REPO/_projects/_scripts/"
+cp "$FRAMEWORK_ROOT/_projects/_scripts/bootstrap_sub_project.py" "$TARGET_REPO/_projects/_scripts/"
+cp "$FRAMEWORK_ROOT/_projects/_scripts/replace_project_references.py" "$TARGET_REPO/_projects/_scripts/"
+cp "$FRAMEWORK_ROOT/_projects/_scripts/start-project.sh" "$TARGET_REPO/_projects/_scripts/"
+chmod +x "$TARGET_REPO/_projects/_scripts/start-project.sh"
+```
+
+## Step 7: Copy Templates
+
+```bash
+cp "$FRAMEWORK_ROOT/_projects/_scripts/templates/"* "$TARGET_REPO/_projects/_scripts/templates/"
+```
+
+## Step 8: Copy Projects README
+
+```bash
+cp "$FRAMEWORK_ROOT/_projects/README.md" "$TARGET_REPO/_projects/README.md"
+```
+
+## Step 9: Create .gitkeep Files
+
+```bash
+touch "$TARGET_REPO/_projects/.completed/.gitkeep"
+touch "$TARGET_REPO/_projects/.on-hold/.gitkeep"
+touch "$TARGET_REPO/_projects/.shelved/.gitkeep"
+```
+
+## Step 10: Handle .gitignore
+
+Check if the target repo already has a `.gitignore`:
+
+**If it exists**: Check whether it already contains the relevant entries. If not, append:
+
+```
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Cursor plans (local only)
+.cursor/plans/
+```
+
+**If it does not exist**: Create a new `.gitignore`:
+
+```
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Cursor plans (local only)
+.cursor/plans/
+```
+
+## Step 11: Commit in Target Repo
+
+```bash
+cd "$TARGET_REPO"
+git add -A
+git commit -m "feat: bootstrap project framework
+
+Adds Cursor rules, Python bootstrap scripts, templates, and lifecycle
+folders for the Project Framework. Projects can now be created with
+@start-project and managed through their full lifecycle."
+```
+
+**Do NOT push.** The user may want to review the commit first.
+
+## Step 12: Report
+
+Present a summary:
+
+```
+Project Framework bootstrapped into: {TARGET_REPO}
+
+Created:
+  .cursor/rules/          -- 8 operational Cursor rules
+  _projects/_scripts/     -- Bootstrap scripts and templates
+  _projects/.completed/   -- Lifecycle: finished projects
+  _projects/.on-hold/     -- Lifecycle: paused projects
+  _projects/.shelved/     -- Lifecycle: deferred projects
+  _projects/README.md     -- Projects directory guide
+  .gitignore              -- Updated/created
+
+Next steps:
+  1. Review the commit: cd {TARGET_REPO} && git log -1
+  2. Push when ready: git push origin main
+  3. Add this repo to your Cursor workspace
+  4. Create your first project: @start-project
+```
+
+---
+
+## Notes
+
+- This rule runs from the project-framework anchor repo context. It reads files from this repo and writes them to the target.
+- The rule does not modify any files in the anchor repo itself.
+- Scripts require Python 3 (standard library only, no pip dependencies).
+- All generated paths in project files use relative format for portability.
+- If the target repo already has `.cursor/rules/` with other rules, they are preserved. Only the framework rules are added/overwritten.
