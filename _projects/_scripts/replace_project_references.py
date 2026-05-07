@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """
-Replace project path references when a project is moved to _projects/.completed/.
+Replace project path references when a project is moved to a lifecycle folder.
 
 Performs a global literal find-and-replace of:
-    _projects/{folder}  -->  _projects/.completed/{folder}
+    _projects/{folder}  -->  _projects/{target}/{folder}
+
+where {target} is one of: .completed, .on-hold, .shelved
 
 across every text file in the _projects/ tree (including .completed/, .on-hold/,
 .shelved/, _rules/, and _scripts/). Handles self-references, parent-child
@@ -11,25 +13,26 @@ cross-references, sibling sub-project references, and unrelated project
 references in a single pass.
 
 Double-replacement is impossible: the replacement text
-"_projects/.completed/{folder}" does not contain the search text
-"_projects/{folder}" as a substring because the ".completed/" segment
+"_projects/{target}/{folder}" does not contain the search text
+"_projects/{folder}" as a substring because the target segment
 breaks the match.
 
 Usage:
+    # Move to .completed (default)
+    python3 _projects/_scripts/replace_project_references.py \
+        --folder "20260225.01.my-project"
+
+    # Move to .on-hold
+    python3 _projects/_scripts/replace_project_references.py \
+        --folder "20260225.01.my-project" --target ".on-hold"
+
+    # Move to .shelved
+    python3 _projects/_scripts/replace_project_references.py \
+        --folder "20260225.01.my-project" --target ".shelved"
+
     # Dry run (preview changes without writing)
     python3 _projects/_scripts/replace_project_references.py \
-        --folder "20260225.01.deployment-component-catalog-redesign" --dry-run
-
-    # Apply changes
-    python3 _projects/_scripts/replace_project_references.py \
-        --folder "20260225.01.deployment-component-catalog-redesign"
-
-    # Retroactive fix for all completed projects
-    for dir in _projects/.completed/*/; do
-        folder=$(basename "$dir")
-        python3 _projects/_scripts/replace_project_references.py \
-            --folder "$folder"
-    done
+        --folder "20260225.01.my-project" --dry-run
 """
 
 import argparse
@@ -92,13 +95,13 @@ def replace_in_file(path: Path, search: str, replacement: str, dry_run: bool) ->
     return count
 
 
-def run(folder: str, repo_root: Path, dry_run: bool) -> None:
+def run(folder: str, target: str, repo_root: Path, dry_run: bool) -> None:
     projects_dir = repo_root / "_projects"
     if not projects_dir.is_dir():
         sys.exit(f"Error: {projects_dir} is not a directory.")
 
     search = f"_projects/{folder}"
-    replacement = f"_projects/.completed/{folder}"
+    replacement = f"_projects/{target}/{folder}"
 
     files_scanned = 0
     files_changed = 0
@@ -141,14 +144,20 @@ def run(folder: str, repo_root: Path, dry_run: bool) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Replace _projects/{folder} with _projects/.completed/{folder} "
+        description="Replace _projects/{folder} with _projects/{target}/{folder} "
                     "across the entire _projects/ tree.",
     )
     parser.add_argument(
         "--folder",
         required=True,
-        help="Project folder name (e.g. '20260225.01.deployment-component-catalog-redesign'). "
+        help="Project folder name (e.g. '20260225.01.my-project'). "
              "Do NOT include '_projects/' prefix.",
+    )
+    parser.add_argument(
+        "--target",
+        default=".completed",
+        choices=[".completed", ".on-hold", ".shelved"],
+        help="Target lifecycle folder. Default: .completed",
     )
     parser.add_argument(
         "--repo-root",
@@ -169,7 +178,7 @@ def main() -> None:
         )
 
     repo_root = resolve_repo_root(args.repo_root)
-    run(args.folder, repo_root, args.dry_run)
+    run(args.folder, args.target, repo_root, args.dry_run)
 
 
 if __name__ == "__main__":

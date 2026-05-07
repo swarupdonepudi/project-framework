@@ -1,0 +1,129 @@
+---
+description: Action rule to shelve a project indefinitely. Adds shelved metadata, moves the project to .shelved/, fixes path references, and commits.
+globs:
+alwaysApply: false
+---
+
+# Rule: Shelve Project (action)
+
+Purpose: When invoked, mark a project as shelved (indefinitely deferred) and move it to the `.shelved/` lifecycle folder. Use this when a project is no longer a priority and may never resume.
+
+Usage: Invoke as `@shelve-project` when you want to indefinitely defer a project.
+
+## When to Shelve vs Hold vs Complete
+
+- **Shelve** -- the project is indefinitely deferred. You might come back to it someday, but there is no plan to resume. Examples: idea lost momentum, priorities shifted permanently, approach was wrong.
+- **Hold** (`@hold-project`) -- the project is temporarily paused with a known resume condition. You intend to come back. Examples: waiting on external dependency, blocked by another project, deprioritized for a sprint.
+- **Complete** (`@complete-project`) -- the project achieved its objectives and is done.
+
+---
+
+## Workflow
+
+### Step 1: Identify the Project
+
+Determine which project to shelve:
+- If `next-task.md` is loaded in the current session, use that project
+- Otherwise, ask the user for the project folder name
+
+### Step 2: Validate
+
+Verify:
+1. The project folder exists in `_projects/` (not already in `.completed/`, `.on-hold/`, or `.shelved/`)
+2. The project has a `next-task.md` file
+
+If validation fails, report the issue and stop.
+
+### Step 3: Ask for Reason
+
+Ask: "Why is this project being shelved? (This will be recorded for future reference)"
+
+Capture the user's response as the shelving reason.
+
+### Step 4: Check for Active Sub-Projects
+
+Search `_projects/` for sub-projects linked to this project. If found, inform the user:
+
+```
+This project has active sub-projects:
+  - 20260213.01.sp.oracle-provider
+  - 20260213.02.sp.azure-provider
+
+Options:
+  (A) Shelve the sub-projects too (recommended)
+  (B) Leave sub-projects active -- they will continue independently
+  (C) Cancel -- do not shelve anything
+
+Which option?
+```
+
+Wait for the user to choose. If (A), shelve each sub-project first, then shelve the parent.
+
+### Step 5: Add Shelved Banner to next-task.md
+
+Add immediately after the Rules of Engagement section:
+
+```markdown
+---
+
+## PROJECT SHELVED
+
+**Shelved**: {YYYY-MM-DD}
+**Reason**: {reason from user}
+
+This project has been indefinitely deferred. If you want to resume it,
+drag this file into a new conversation -- all paths and context remain valid.
+
+---
+```
+
+Update any status fields in the file to reflect "Shelved".
+
+### Step 6: Update README.md
+
+Add to the project's `README.md` near the top (after the title):
+
+```markdown
+> **Status: SHELVED** ({YYYY-MM-DD}) -- {reason}
+```
+
+### Step 7: If Sub-Project, Update Parent
+
+If this project has the `sp.` marker in its name:
+1. Find the parent project
+2. Update the parent's sub-project status table: change status to "Shelved"
+3. Update the parent's `next-task.md` sub-projects section: prefix with `**(Shelved)**`
+
+### Step 8: Move Folder
+
+```bash
+mkdir -p _projects/.shelved
+mv _projects/{FOLDER} _projects/.shelved/{FOLDER}
+```
+
+### Step 9: Fix Path References
+
+```bash
+python3 _projects/_scripts/replace_project_references.py \
+  --folder "{FOLDER}" --target ".shelved"
+```
+
+### Step 10: Commit
+
+Commit all changes using `@commit-changes`:
+
+```
+chore(projects): shelve project {FOLDER}
+```
+
+---
+
+## Resuming a Shelved Project
+
+A shelved project can be resumed at any time by:
+1. Moving it back: `mv _projects/.shelved/{FOLDER} _projects/{FOLDER}`
+2. Running the reference script in reverse (or manually updating paths)
+3. Removing the "PROJECT SHELVED" banner from `next-task.md`
+4. Dragging `next-task.md` into a new chat
+
+Or simply drag the shelved project's `next-task.md` into a chat -- the AI will note it is shelved and ask if you want to reactivate it.
